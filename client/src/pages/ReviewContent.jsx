@@ -14,6 +14,7 @@ import {
   CheckCircle,
   GitCompare,
   AlertOctagon,
+  Info,
 } from 'lucide-react';
 import {
   fetchContentDetail,
@@ -30,8 +31,10 @@ import VersionPicker from '../components/VersionPicker';
 import ApprovalBar from '../components/ApprovalBar';
 import CommentThread from '../components/CommentThread';
 import AuditTimeline from '../components/AuditTimeline';
+import AiDisclosureBanner from '../components/AiDisclosureBanner';
 import Loading from '../components/Loading';
 import ErrorMessage from '../components/ErrorMessage';
+import usePageTitle from '../utils/usePageTitle';
 
 export default function ReviewContent() {
   const { id } = useParams();
@@ -48,6 +51,8 @@ export default function ReviewContent() {
     savingVersion,
     error,
   } = useSelector((state) => state.content);
+
+  usePageTitle(current?.title ? `Review: ${current.title}` : 'Review Draft');
 
   const [selectedFindingId, setSelectedFindingId] = useState(null);
   const [activeVersionNumber, setActiveVersionNumber] = useState(null);
@@ -309,6 +314,22 @@ export default function ReviewContent() {
           </button>
         </div>
       </div>
+
+      {/* First-time user guide callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-brand-teal flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900">How to review &amp; resolve findings:</span>
+            <p className="text-slate-600">
+              Click highlights or finding cards to inspect violations. Click <strong>Accept fix</strong> or <strong>Edit</strong> to prepare replacements, or <strong>Dispute</strong> with a justification. Once resolved, click <strong>Save as new version</strong> to regenerate draft copy without overwriting history.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Compact AI Disclosure Banner */}
+      <AiDisclosureBanner compact={true} />
 
       {/* Role-based Approval Workflow Bar */}
       <ApprovalBar content={current} findings={findings} />

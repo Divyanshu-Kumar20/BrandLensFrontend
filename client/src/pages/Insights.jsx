@@ -13,12 +13,16 @@ import {
   PieChart,
   Shield,
   Layers,
+  Info,
 } from 'lucide-react';
 import { api } from '../api';
 import Loading from '../components/Loading';
+import EmptyState from '../components/EmptyState';
 import ErrorMessage from '../components/ErrorMessage';
+import usePageTitle from '../utils/usePageTitle';
 
 export default function Insights() {
+  usePageTitle('Insights');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -89,6 +93,19 @@ export default function Insights() {
         </button>
       </div>
 
+      {/* First-time user guide callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-brand-teal flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900">Understanding Governance Analytics:</span>
+            <p className="text-slate-600">
+              This executive dashboard tracks compliance trends across all marketing drafts. High dispute frequencies spotlight clauses where marketing teams frequently encounter ambiguity, helping leadership calibrate brand guidelines.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Error state */}
       {error && (
         <ErrorMessage
@@ -100,7 +117,15 @@ export default function Insights() {
       {/* Loading state */}
       {loading && <Loading message="Loading governance analytics..." rows={4} />}
 
-      {!loading && data && (
+      {/* Empty State */}
+      {!loading && !error && (!data || data.totals?.analyzedCount === 0) && (
+        <EmptyState
+          title="No governance data yet"
+          description="Draft, check, and publish content to generate compliance analytics and dispute metrics."
+        />
+      )}
+
+      {!loading && data && data.totals?.analyzedCount > 0 && (
         <>
           {/* Key Metric Totals Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

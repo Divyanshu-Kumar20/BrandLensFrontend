@@ -125,7 +125,7 @@ export default function DiffView({
               <span>Before (v{oldVersionNumber})</span>
               <span className="font-mono text-slate-500">{oldText.length} chars</span>
             </div>
-            <div className="whitespace-pre-wrap text-slate-800">
+            <div className="whitespace-pre-wrap break-words text-slate-800">
               {diffParts.map((part, index) => {
                 if (part.added) return null; // Don't show added in "Before"
                 if (part.removed) {
@@ -146,7 +146,7 @@ export default function DiffView({
               <span>After (v{newVersionNumber})</span>
               <span className="font-mono text-slate-500">{newText.length} chars</span>
             </div>
-            <div className="whitespace-pre-wrap text-slate-800">
+            <div className="whitespace-pre-wrap break-words text-slate-800">
               {diffParts.map((part, index) => {
                 if (part.removed) return null; // Don't show removed in "After"
                 if (part.added) {

@@ -16,6 +16,7 @@ import {
   CheckCircle,
   AlertCircle,
   BookOpen,
+  Info,
 } from 'lucide-react';
 import { fetchContentList } from '../store/contentSlice';
 import { ROLES, CONTENT_STATUS, CHANNELS } from '../utils/constants';
@@ -23,6 +24,7 @@ import StatusBadge from '../components/StatusBadge';
 import Loading from '../components/Loading';
 import EmptyState from '../components/EmptyState';
 import ErrorMessage from '../components/ErrorMessage';
+import usePageTitle from '../utils/usePageTitle';
 
 const channelIcons = {
   [CHANNELS.SOCIAL]: Share2,
@@ -32,6 +34,7 @@ const channelIcons = {
 };
 
 export default function Dashboard() {
+  usePageTitle('Dashboard');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
@@ -123,6 +126,19 @@ export default function Dashboard() {
             <BookOpen className="w-4 h-4 text-brand-teal" />
             Brand Rules
           </Link>
+        </div>
+      </div>
+
+      {/* First-time user guide callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-brand-teal flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900">How Brand Governance Works in BrandLens:</span>
+            <p className="text-slate-600">
+              1. <strong>Draft</strong> copy &bull; 2. <strong>Inspect</strong> rule &amp; Gemini AI findings &bull; 3. <strong>Accept / Edit / Dispute</strong> &bull; 4. <strong>Stage 1 Reviewer</strong> check &bull; 5. <strong>Stage 2 Manager</strong> final sign-off.
+            </p>
+          </div>
         </div>
       </div>
 

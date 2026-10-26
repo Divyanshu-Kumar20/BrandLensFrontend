@@ -14,6 +14,7 @@ import {
   Palette as PaletteIcon,
   Search,
   Info,
+  Sparkles,
 } from 'lucide-react';
 import {
   fetchAllKnowledge,
@@ -31,11 +32,15 @@ import { ROLES, CLAUSE_CATEGORIES } from '../utils/constants';
 import Loading from '../components/Loading';
 import EmptyState from '../components/EmptyState';
 import ErrorMessage from '../components/ErrorMessage';
+import usePageTitle from '../utils/usePageTitle';
+import { updateOrgSettings } from '../store/authSlice';
 
 export default function Knowledge() {
+  usePageTitle('Knowledge Base');
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { user, org } = useSelector((state) => state.auth);
   const { clauses, facts, terms, loading, error } = useSelector((state) => state.knowledge);
+  const [updatingAiSetting, setUpdatingAiSetting] = useState(false);
 
   const [activeTab, setActiveTab] = useState('guidelines'); // guidelines | facts | terms | palette
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,8 +195,94 @@ export default function Knowledge() {
     { name: 'Suggestion Severity (Blue)', hex: '#2563EB', role: 'Recommended phrasing polish or stylistic enhancements', textLight: true },
   ];
 
+  const handleToggleAiSettings = async () => {
+    if (!isAdmin) return;
+    const newAiState = !(org?.aiEnabled ?? true);
+    setUpdatingAiSetting(true);
+    const res = await dispatch(updateOrgSettings({ aiEnabled: newAiState }));
+    setUpdatingAiSetting(false);
+    if (!res.error) {
+      toast.success(newAiState ? 'AI Review enabled organization-wide' : 'AI Review disabled organization-wide');
+    } else {
+      toast.error('Failed to update organization settings');
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* First-time user guide callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-brand-teal flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900">First time using the Knowledge Base?</span>
+            <p className="text-slate-600">
+              Explore guidelines for brand voice and claims, verified factual assertions, banned/preferred terms, and approved visual palette tokens. Administrators can create, edit, or remove rules.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Switch for AI (PATCH /org/settings) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              org?.aiEnabled ?? true ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Organization AI Review Setting
+              </h3>
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                  org?.aiEnabled ?? true
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {org?.aiEnabled ?? true ? 'AI Enabled (Gemini)' : 'Deterministic Rules Only'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isAdmin
+                ? 'Administrators can toggle whether Gemini AI evaluates tone and superlative claims organization-wide.'
+                : 'Current organization-wide status configured by an administrator via PATCH /org/settings.'}
+            </p>
+          </div>
+        </div>
+
+        {isAdmin ? (
+          <button
+            type="button"
+            id="admin-toggle-ai-switch"
+            onClick={handleToggleAiSettings}
+            disabled={updatingAiSetting}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-teal ${
+              org?.aiEnabled ?? true
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                : 'bg-brand-teal hover:bg-brand-teal-dark text-white'
+            }`}
+          >
+            <span>
+              {updatingAiSetting
+                ? 'Updating...'
+                : (org?.aiEnabled ?? true)
+                ? 'Disable AI Org-wide'
+                : 'Enable AI Org-wide'}
+            </span>
+          </button>
+        ) : (
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+            Managed by Admin
+          </span>
+        )}
+      </div>
+
       {/* Required Plan Banner */}
       <div
         id="knowledge-citation-banner"

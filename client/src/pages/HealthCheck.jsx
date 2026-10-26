@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, CheckCircle2, AlertCircle, RefreshCw, Server, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { api, isMockMode } from '../api';
+import usePageTitle from '../utils/usePageTitle';
 
 export default function HealthCheck() {
+  usePageTitle('Health Status');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);

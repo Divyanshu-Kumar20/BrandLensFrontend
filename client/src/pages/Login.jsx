@@ -4,8 +4,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { ShieldCheck, UserCheck, ShieldAlert, Sparkles, Mail, Lock, ArrowRight, AlertCircle, Info } from 'lucide-react';
 import { loginWithDemo, loginWithCredentials, clearAuthError } from '../store/authSlice';
 import { ROLES } from '../utils/constants';
+import usePageTitle from '../utils/usePageTitle';
 
 export default function Login() {
+  usePageTitle('Login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedDemoRole, setSelectedDemoRole] = useState(null);

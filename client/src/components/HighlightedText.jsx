@@ -55,7 +55,7 @@ export default function HighlightedText({
   return (
     <div
       id="highlighted-text-container"
-      className="p-5 rounded-2xl bg-white border border-slate-200 font-sans text-sm leading-relaxed text-slate-800 whitespace-pre-wrap select-text shadow-sm"
+      className="p-5 rounded-2xl bg-white border border-slate-200 font-sans text-sm leading-relaxed text-slate-800 whitespace-pre-wrap break-words select-text shadow-sm"
       aria-label="Reviewed draft content with guideline violation highlights"
     >
       {segments.map((segment, index) => {

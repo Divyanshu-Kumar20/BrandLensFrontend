@@ -4,8 +4,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import { ShieldAlert, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { loginWithDemo } from '../store/authSlice';
 import { ROLES } from '../utils/constants';
+import usePageTitle from '../utils/usePageTitle';
 
 export default function NotAllowed() {
+  usePageTitle('Access Restricted');
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();

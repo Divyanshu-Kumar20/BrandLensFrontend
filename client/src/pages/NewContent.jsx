@@ -15,9 +15,12 @@ import {
   Mail,
   Globe,
   Presentation,
+  Info,
 } from 'lucide-react';
 import { createAndReviewContent } from '../store/contentSlice';
 import { CHANNELS } from '../utils/constants';
+import usePageTitle from '../utils/usePageTitle';
+import AiDisclosureBanner from '../components/AiDisclosureBanner';
 
 const DEMO_DRAFT = {
   title: 'Summer Launch Announcement',
@@ -26,6 +29,7 @@ const DEMO_DRAFT = {
 };
 
 export default function NewContent() {
+  usePageTitle('New Draft');
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user, org } = useSelector((state) => state.auth);
@@ -34,7 +38,7 @@ export default function NewContent() {
   const [title, setTitle] = useState('');
   const [channel, setChannel] = useState(CHANNELS.SOCIAL);
   const [text, setText] = useState('');
-  const [useAi, setUseAi] = useState(true);
+  const [useAi, setUseAi] = useState(org?.aiEnabled ?? true);
 
   // Fill sample draft
   const handleTrySampleDraft = () => {
@@ -106,6 +110,22 @@ export default function NewContent() {
           Try sample draft
         </button>
       </div>
+
+      {/* First-time user guide callout */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-brand-teal flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900">Tips for drafting marketing copy:</span>
+            <p className="text-slate-600">
+              Select your publication channel, input draft text or click <strong>&quot;Try sample draft&quot;</strong> to fill our demo copy. When you click <strong>&quot;Check content&quot;</strong>, BrandLens validates your text against stored brand rules and Gemini AI.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Transparency & Governance Disclosure Banner */}
+      <AiDisclosureBanner />
 
       {/* Form Card */}
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
@@ -200,41 +220,55 @@ export default function NewContent() {
         </div>
 
         {/* AI Review Toggle & Clear Disclosure */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand-teal" />
-              <label htmlFor="toggle-ai-review" className="text-xs font-bold text-slate-900 cursor-pointer">
-                Use AI review (Gemini Model)
-              </label>
+        {(() => {
+          const isOrgAiDisabled = org && org.aiEnabled === false;
+          return (
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-brand-teal" />
+                  <label htmlFor="toggle-ai-review" className="text-xs font-bold text-slate-900 cursor-pointer">
+                    Use AI review (Gemini Model)
+                  </label>
+                  {isOrgAiDisabled && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                      Disabled by Admin
+                    </span>
+                  )}
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    id="toggle-ai-review"
+                    type="checkbox"
+                    checked={useAi && !isOrgAiDisabled}
+                    disabled={reviewing || isOrgAiDisabled}
+                    onChange={(e) => setUseAi(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-teal rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-teal peer-disabled:opacity-40"></div>
+                </label>
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-slate-600 border-t border-slate-200 pt-2.5">
+                <strong>Disclosure of external data transmission:</strong>{' '}
+                {isOrgAiDisabled ? (
+                  <span className="text-amber-800 font-medium">
+                    AI review is currently disabled organization-wide by an administrator (PATCH /org/settings). Content checks will run strictly against local deterministic rules stored in the knowledge base.
+                  </span>
+                ) : useAi ? (
+                  <span>
+                    When enabled, your draft title and text will be sent to the external Google Gemini API through our secure backend for deep semantic analysis and superlative claim verification. Deterministic brand rules execute concurrently.
+                  </span>
+                ) : (
+                  <span>
+                    AI review is disabled. Only deterministic brand rules (banned terms, exact fact thresholds, punctuation) stored in your local knowledge base will be checked.
+                  </span>
+                )}
+              </p>
             </div>
-
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                id="toggle-ai-review"
-                type="checkbox"
-                checked={useAi}
-                disabled={reviewing}
-                onChange={(e) => setUseAi(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-teal rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-teal"></div>
-            </label>
-          </div>
-
-          <p className="text-[11px] leading-relaxed text-slate-600 border-t border-slate-200 pt-2.5">
-            <strong>Disclosure of external data transmission:</strong>{' '}
-            {useAi ? (
-              <span>
-                When enabled, your draft title and text will be sent to the external Google Gemini API through our secure backend for deep semantic analysis and superlative claim verification. Deterministic brand rules execute concurrently.
-              </span>
-            ) : (
-              <span>
-                AI review is disabled. Only deterministic brand rules (banned terms, exact fact thresholds, punctuation) stored in your local knowledge base will be checked.
-              </span>
-            )}
-          </p>
-        </div>
+          );
+        })()}
 
         {/* Submit Actions */}
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">

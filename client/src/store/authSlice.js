@@ -40,6 +40,19 @@ export const loginWithCredentials = createAsyncThunk(
   }
 );
 
+// Async thunk: Update Org Settings (Admin AI switch)
+export const updateOrgSettings = createAsyncThunk(
+  'auth/updateOrgSettings',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const response = await api.updateOrgSettings(payload);
+      return response;
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to update organization settings');
+    }
+  }
+);
+
 const initialState = {
   user,
   org,
@@ -122,6 +135,11 @@ const authSlice = createSlice({
       .addCase(loginWithCredentials.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Invalid email or password';
+      })
+      // Update Org Settings
+      .addCase(updateOrgSettings.fulfilled, (state, action) => {
+        state.org = { ...state.org, ...action.payload };
+        if (state.org) localStorage.setItem('brandlens_org', JSON.stringify(state.org));
       });
   },
 });
