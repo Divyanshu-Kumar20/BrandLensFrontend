@@ -512,6 +512,26 @@ export const mockApi = {
       }
     }
 
+    // Check guaranteed claim
+    if (text.toLowerCase().includes('guaranteed')) {
+      const start = text.toLowerCase().indexOf('guaranteed');
+      findings.push({
+        id: `f_rule_guaranteed_${Date.now()}`,
+        versionId,
+        origin: FINDING_ORIGINS.RULE,
+        ruleId: 'R-CLM-3.1',
+        type: FINDING_TYPES.CLAIM,
+        severity: SEVERITIES.SHOULD_FIX,
+        span: { start, end: start + 'guaranteed'.length, text: text.slice(start, start + 'guaranteed'.length) },
+        message: "Absolute claim 'guaranteed' requires substantiation or softer phrasing.",
+        suggestion: 'crafted to help',
+        confidence: 1.0,
+        sourceRef: { kind: 'clause', id: 'cl4', label: 'Claims policy', code: 'CLM-3.1' },
+        status: FINDING_STATUS.OPEN,
+        disputeReason: null,
+      });
+    }
+
     // Free delivery check
     if (text.includes('Free delivery on all orders')) {
       const start = text.indexOf('Free delivery on all orders');
