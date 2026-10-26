@@ -1,129 +1,315 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
-import { PlusCircle, FileText, CheckCircle2, AlertTriangle, ArrowRight, Clock } from 'lucide-react';
-import { ROLES } from '../utils/constants';
+import React, { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  PlusCircle,
+  FileText,
+  Filter,
+  Clock,
+  Sparkles,
+  ArrowRight,
+  ExternalLink,
+  Share2,
+  Mail,
+  Globe,
+  Presentation,
+  CheckCircle,
+  AlertCircle,
+  BookOpen,
+} from 'lucide-react';
+import { fetchContentList } from '../store/contentSlice';
+import { ROLES, CONTENT_STATUS, CHANNELS } from '../utils/constants';
+import StatusBadge from '../components/StatusBadge';
+import Loading from '../components/Loading';
+import EmptyState from '../components/EmptyState';
+import ErrorMessage from '../components/ErrorMessage';
+
+const channelIcons = {
+  [CHANNELS.SOCIAL]: Share2,
+  [CHANNELS.EMAIL]: Mail,
+  [CHANNELS.WEB]: Globe,
+  [CHANNELS.DECK]: Presentation,
+};
 
 export default function Dashboard() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { list, loading, error } = useSelector((state) => state.content);
+
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  useEffect(() => {
+    dispatch(fetchContentList(statusFilter === 'ALL' ? undefined : statusFilter));
+  }, [dispatch, statusFilter]);
+
+  const canCreateContent = user?.role === ROLES.CREATOR || user?.role === ROLES.ADMIN;
+  const isReviewer = user?.role === ROLES.REVIEWER;
+  const isManager = user?.role === ROLES.MANAGER;
+
+  // "Waiting for you" items
+  const waitingItems = list.filter((item) => {
+    if (isReviewer) return item.status === CONTENT_STATUS.IN_REVIEW;
+    if (isManager) return item.status === CONTENT_STATUS.REVIEWER_APPROVED;
+    return false;
+  });
+
+  const filteredList =
+    statusFilter === 'ALL'
+      ? list
+      : list.filter((item) => item.status === statusFilter);
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'Just now';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoString;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Top Welcome / Actions Header */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-brand-teal">
-            Brand Governance Dashboard
-          </span>
-          <h1 className="text-2xl font-bold text-brand-navy mt-1">
-            Welcome back, {user?.name || 'User'}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-teal">
+              Nimbus Coffee Co. &bull; Brand Governance
+            </span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-brand-navy tracking-tight">
+            Marketing Drafts Dashboard
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Current role: <span className="font-semibold capitalize text-brand-teal font-mono">{user?.role}</span> &bull; Fictional brand: <strong>Nimbus Coffee Co.</strong>
+            Review and govern marketing communications across all touchpoints prior to external publishing.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {(user?.role === ROLES.CREATOR || user?.role === ROLES.ADMIN) && (
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {canCreateContent ? (
             <Link
               to="/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-teal hover:bg-brand-teal-dark text-white text-xs font-semibold rounded-lg shadow-sm transition"
+              id="btn-new-content"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-brand-teal-dark text-white text-xs font-bold transition shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-teal-light flex-1 sm:flex-initial"
             >
               <PlusCircle className="w-4 h-4" />
-              New Draft
+              New Content
             </Link>
+          ) : (
+            <div className="text-[11px] text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+              Only Creators &amp; Admins can draft new copy
+            </div>
           )}
+
           <Link
             to="/knowledge"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
           >
-            Knowledge Base
+            <BookOpen className="w-4 h-4 text-brand-teal" />
+            Brand Rules
           </Link>
         </div>
       </div>
 
-      {/* Role-specific callout / quick test indicator */}
-      {(user?.role === ROLES.REVIEWER || user?.role === ROLES.MANAGER) && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <div>
-              <div className="text-xs font-bold text-blue-900">Waiting for Your Sign-off</div>
-              <div className="text-[11px] text-blue-700">
-                You have governance review authority for submitted marketing content.
+      {/* Reviewer / Manager "Waiting for you" section */}
+      {(isReviewer || isManager) && (
+        <section aria-labelledby="waiting-for-you-title">
+          <div className="bg-gradient-to-r from-blue-900 to-brand-navy text-white rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-brand-teal-light animate-pulse" />
+                <h2 id="waiting-for-you-title" className="text-sm font-bold tracking-tight">
+                  Waiting for your sign-off
+                </h2>
               </div>
+              <span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded-full text-white">
+                {waitingItems.length} awaiting action
+              </span>
             </div>
+
+            {waitingItems.length === 0 ? (
+              <p className="text-xs text-slate-300">
+                You are all caught up! No drafts are currently awaiting{' '}
+                {isReviewer ? 'reviewer check' : 'manager final approval'}.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                {waitingItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={`/content/${item.id}`}
+                    className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3.5 transition group flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] text-brand-teal-light mb-1">
+                        <span className="capitalize">{item.channel}</span>
+                        <span className="font-mono">v{item.currentVersion}</span>
+                      </div>
+                      <h3 className="text-xs font-bold text-white group-hover:text-brand-light transition">
+                        {item.title}
+                      </h3>
+                      <p className="text-[11px] text-slate-300 mt-1">
+                        Created by {item.createdByName}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-300 font-medium">
+                      <span>Review now</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-          <Link
-            to="/content/c1"
-            className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1"
-          >
-            View Demo Submission &rarr;
-          </Link>
-        </div>
+        </section>
       )}
 
-      {/* Quick navigation cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link
-          to="/content/c1"
-          className="bg-white border border-slate-200 hover:border-brand-teal rounded-xl p-5 shadow-sm transition group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Sample Draft</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-100 text-amber-800 font-bold">Draft</span>
+      {/* Content Table / Main List Container */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        {/* Filter bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Filter by Status:
+            </span>
           </div>
-          <h2 className="text-sm font-bold text-brand-navy mt-3 group-hover:text-brand-teal transition-colors">
-            Summer Launch Announcement
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-            Get our CHEAPEST cold brew ever!!! Nimbus is the world&apos;s best coffee...
-          </p>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-brand-teal font-semibold">
-            <span>Open Review Engine</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </Link>
 
-        <Link
-          to="/knowledge"
-          className="bg-white border border-slate-200 hover:border-brand-teal rounded-xl p-5 shadow-sm transition group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Brand Rules</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-100 text-teal-800 font-bold">8 Clauses</span>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'ALL', label: 'All Items' },
+              { id: CONTENT_STATUS.DRAFT, label: 'Draft' },
+              { id: CONTENT_STATUS.IN_REVIEW, label: 'In Review' },
+              { id: CONTENT_STATUS.CHANGES_REQUESTED, label: 'Changes Requested' },
+              { id: CONTENT_STATUS.REVIEWER_APPROVED, label: 'Reviewer Approved' },
+              { id: CONTENT_STATUS.APPROVED, label: 'Approved' },
+              { id: CONTENT_STATUS.REJECTED, label: 'Rejected' },
+            ].map((f) => {
+              const active = statusFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setStatusFilter(f.id)}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-teal ${
+                    active
+                      ? 'bg-brand-navy text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
-          <h2 className="text-sm font-bold text-brand-navy mt-3 group-hover:text-brand-teal transition-colors">
-            Knowledge Base
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Guidelines, facts, banned and preferred terms for Nimbus Coffee Co.
-          </p>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-brand-teal font-semibold">
-            <span>Explore Rules</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </Link>
+        </div>
 
-        <Link
-          to="/insights"
-          className="bg-white border border-slate-200 hover:border-brand-teal rounded-xl p-5 shadow-sm transition group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Analytics</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-100 text-purple-800 font-bold">Manager/Admin</span>
+        {/* Global Error Banner */}
+        {error && (
+          <ErrorMessage
+            message={error}
+            onRetry={() => dispatch(fetchContentList(statusFilter === 'ALL' ? undefined : statusFilter))}
+          />
+        )}
+
+        {/* Loading State */}
+        {loading && <Loading message="Loading drafts..." rows={4} />}
+
+        {/* Empty State */}
+        {!loading && filteredList.length === 0 && (
+          <EmptyState
+            title="No drafts match your filter"
+            description={
+              statusFilter !== 'ALL'
+                ? `There are currently no items in '${statusFilter}' status.`
+                : 'No marketing content drafts have been created yet.'
+            }
+            action={
+              canCreateContent ? (
+                <Link
+                  to="/new"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-teal text-white text-xs font-semibold shadow-sm"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Create First Draft
+                </Link>
+              ) : null
+            }
+          />
+        )}
+
+        {/* Content Table */}
+        {!loading && filteredList.length > 0 && (
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="px-5 py-3.5">Title / Document</th>
+                  <th className="px-5 py-3.5">Channel</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Version</th>
+                  <th className="px-5 py-3.5">Creator</th>
+                  <th className="px-5 py-3.5">Last Updated</th>
+                  <th className="px-5 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredList.map((content) => {
+                  const ChannelIcon = channelIcons[content.channel] || FileText;
+                  return (
+                    <tr
+                      key={content.id}
+                      className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                      onClick={() => navigate(`/content/${content.id}`)}
+                    >
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-900 group-hover:text-brand-teal transition-colors">
+                          {content.title}
+                        </div>
+                        <div className="text-[11px] text-slate-600 font-mono">ID: {content.id}</div>
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 capitalize">
+                          <ChannelIcon className="w-3.5 h-3.5 text-brand-teal" />
+                          {content.channel}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <StatusBadge status={content.status} />
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap font-mono text-slate-700 font-semibold">
+                        v{content.currentVersion}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap text-slate-600">
+                        {content.createdByName}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap text-slate-500 font-mono">
+                        {formatDate(content.updatedAt)}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap text-right">
+                        <Link
+                          to={`/content/${content.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-teal hover:bg-brand-light transition"
+                        >
+                          Review
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <h2 className="text-sm font-bold text-brand-navy mt-3 group-hover:text-brand-teal transition-colors">
-            Insights &amp; Summary
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Breakdown of brand violations by type, status, and most disputed clauses.
-          </p>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-brand-teal font-semibold">
-            <span>View Summary</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </Link>
+        )}
       </div>
     </div>
   );
