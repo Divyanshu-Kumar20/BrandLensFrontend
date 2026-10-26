@@ -14,7 +14,7 @@ export const fetchContentList = createAsyncThunk(
   }
 );
 
-// Fetch a single content detail by ID with versions and latest findings
+// Fetch single content with versions and findings
 export const fetchContentDetail = createAsyncThunk(
   'content/fetchDetail',
   async (contentId, { rejectWithValue }) => {
@@ -36,12 +36,11 @@ export const fetchContentDetail = createAsyncThunk(
   }
 );
 
-// Create new content and immediately trigger initial review check
+// Create new content and immediately trigger initial review
 export const createAndReviewContent = createAsyncThunk(
   'content/createAndReview',
   async ({ title, channel, text, useAi, userName }, { rejectWithValue }) => {
     try {
-      // 1. POST /content
       const { content, version } = await api.createContent({
         title,
         channel,
@@ -49,7 +48,6 @@ export const createAndReviewContent = createAsyncThunk(
         userName,
       });
 
-      // 2. POST /content/:id/review
       const reviewResult = await api.reviewContent(content.id, {
         versionId: version.id,
         useAi,
@@ -71,7 +69,7 @@ export const createAndReviewContent = createAsyncThunk(
   }
 );
 
-// Re-run review check on existing content version
+// Re-check existing content version
 export const recheckContent = createAsyncThunk(
   'content/recheck',
   async ({ contentId, versionId, useAi }, { rejectWithValue }) => {
@@ -87,6 +85,56 @@ export const recheckContent = createAsyncThunk(
   }
 );
 
+// Patch finding status (accepted, edited, disputed)
+export const patchFindingStatus = createAsyncThunk(
+  'content/patchFinding',
+  async ({ findingId, status, disputeReason, editedText, resolvedByName }, { rejectWithValue }) => {
+    try {
+      const updated = await api.patchFinding(findingId, {
+        status,
+        disputeReason,
+        editedText,
+        resolvedByName,
+      });
+      return updated;
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to update finding');
+    }
+  }
+);
+
+// Save as new version and immediately re-run review check
+export const saveNewVersionAndReview = createAsyncThunk(
+  'content/saveNewVersionAndReview',
+  async ({ contentId, basedOnVersionId, fixes, useAi = true }, { rejectWithValue }) => {
+    try {
+      // 1. POST /content/:id/versions
+      const newVersion = await api.createVersion(contentId, {
+        basedOnVersionId,
+        fixes,
+      });
+
+      // 2. POST /content/:id/review
+      const reviewResult = await api.reviewContent(contentId, {
+        versionId: newVersion.id,
+        useAi,
+      });
+
+      return {
+        newVersion: {
+          ...newVersion,
+          aiUsed: reviewResult.aiUsed,
+          aiModel: reviewResult.aiUsed ? 'gemini-1.5-pro' : null,
+        },
+        findings: reviewResult.findings || [],
+        reviewResult,
+      };
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to save new version');
+    }
+  }
+);
+
 const initialState = {
   list: [],
   current: null,
@@ -94,6 +142,7 @@ const initialState = {
   findings: [],
   loading: false,
   reviewing: false,
+  savingVersion: false,
   error: null,
 };
 
@@ -111,13 +160,6 @@ const contentSlice = createSlice({
     },
     setFindings(state, action) {
       state.findings = action.payload;
-    },
-    updateFindingInList(state, action) {
-      const updated = action.payload;
-      const index = state.findings.findIndex((f) => f.id === updated.id);
-      if (index !== -1) {
-        state.findings[index] = updated;
-      }
     },
   },
   extraReducers: (builder) => {
@@ -179,15 +221,39 @@ const contentSlice = createSlice({
       .addCase(recheckContent.rejected, (state, action) => {
         state.reviewing = false;
         state.error = action.payload;
+      })
+
+      // Patch finding
+      .addCase(patchFindingStatus.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const index = state.findings.findIndex((f) => f.id === updated.id);
+        if (index !== -1) {
+          state.findings[index] = updated;
+        }
+      })
+
+      // Save new version and review
+      .addCase(saveNewVersionAndReview.pending, (state) => {
+        state.savingVersion = true;
+        state.error = null;
+      })
+      .addCase(saveNewVersionAndReview.fulfilled, (state, action) => {
+        state.savingVersion = false;
+        const { newVersion, findings } = action.payload;
+        state.versions.unshift(newVersion);
+        if (state.current) {
+          state.current.currentVersion = newVersion.number;
+          state.current.updatedAt = new Date().toISOString();
+        }
+        state.findings = findings;
+      })
+      .addCase(saveNewVersionAndReview.rejected, (state, action) => {
+        state.savingVersion = false;
+        state.error = action.payload;
       });
   },
 });
 
-export const {
-  clearContentError,
-  setCurrentContent,
-  setFindings,
-  updateFindingInList,
-} = contentSlice.actions;
+export const { clearContentError, setCurrentContent, setFindings } = contentSlice.actions;
 
 export default contentSlice.reducer;

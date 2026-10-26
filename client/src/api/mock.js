@@ -459,12 +459,19 @@ export const mockApi = {
 
     const text = version.text;
     const findings = [];
+    const addFindingSafe = (f) => {
+      if (!findings.some((existing) => existing.span.start === f.span.start && existing.span.end === f.span.end)) {
+        findings.push(f);
+      }
+    };
 
     // Check banned terms
     state.terms.filter((t) => t.kind === 'banned').forEach((t) => {
       let idx = text.toLowerCase().indexOf(t.term.toLowerCase());
       while (idx !== -1) {
-        findings.push({
+        // Compute span text matching actual text
+        const matchedText = text.slice(idx, idx + t.term.length);
+        addFindingSafe({
           id: `f_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           versionId,
           origin: FINDING_ORIGINS.RULE,
@@ -474,7 +481,7 @@ export const mockApi = {
           span: {
             start: idx,
             end: idx + t.term.length,
-            text: text.slice(idx, idx + t.term.length),
+            text: matchedText,
           },
           message: `'${t.term}' is a banned term in brand language.`,
           suggestion: t.replacement || 'appropriate alternative',
@@ -494,7 +501,7 @@ export const mockApi = {
     if (effectiveAi) {
       if (text.includes("world's best")) {
         const start = text.indexOf("world's best");
-        findings.push({
+        addFindingSafe({
           id: `f_ai_${Date.now()}_1`,
           versionId,
           origin: FINDING_ORIGINS.AI,
@@ -515,7 +522,7 @@ export const mockApi = {
     // Check guaranteed claim
     if (text.toLowerCase().includes('guaranteed')) {
       const start = text.toLowerCase().indexOf('guaranteed');
-      findings.push({
+      addFindingSafe({
         id: `f_rule_guaranteed_${Date.now()}`,
         versionId,
         origin: FINDING_ORIGINS.RULE,
@@ -535,7 +542,7 @@ export const mockApi = {
     // Free delivery check
     if (text.includes('Free delivery on all orders')) {
       const start = text.indexOf('Free delivery on all orders');
-      findings.push({
+      addFindingSafe({
         id: `f_ai_${Date.now()}_2`,
         versionId,
         origin: effectiveAi ? FINDING_ORIGINS.AI : FINDING_ORIGINS.RULE,
@@ -555,7 +562,7 @@ export const mockApi = {
     // 30 days check
     if (text.includes('30 days')) {
       const start = text.indexOf('30 days');
-      findings.push({
+      addFindingSafe({
         id: `f_rule_${Date.now()}_3`,
         versionId,
         origin: FINDING_ORIGINS.RULE,
@@ -575,7 +582,7 @@ export const mockApi = {
     // Click here check
     if (text.includes('Click here')) {
       const start = text.indexOf('Click here');
-      findings.push({
+      addFindingSafe({
         id: `f_rule_${Date.now()}_4`,
         versionId,
         origin: FINDING_ORIGINS.RULE,
@@ -595,7 +602,7 @@ export const mockApi = {
     // Exclamations check
     if (text.includes('!!!')) {
       const start = text.indexOf('!!!');
-      findings.push({
+      addFindingSafe({
         id: `f_tone_${Date.now()}_5`,
         versionId,
         origin: FINDING_ORIGINS.RULE,

@@ -1,15 +1,21 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, AlertOctagon, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Info, CheckCircle2, Sparkles, Save, Layers } from 'lucide-react';
 import FindingCard from './FindingCard';
 import EmptyState from './EmptyState';
-import { SEVERITIES } from '../utils/constants';
+import { SEVERITIES, FINDING_STATUS } from '../utils/constants';
 
 export default function FindingsPanel({
   findings = [],
   selectedFindingId = null,
   onSelectFinding = () => {},
   aiFailed = false,
-  actionSlotRenderer = null,
+  onAcceptFinding = () => {},
+  onEditFinding = () => {},
+  onDisputeFinding = () => {},
+  canAct = true,
+  pendingFixesCount = 0,
+  onSaveNewVersion = () => {},
+  savingVersion = false,
 }) {
   // Group findings by severity (blocking first, then should_fix, then suggestion)
   const grouped = useMemo(() => {
@@ -36,7 +42,6 @@ export default function FindingsPanel({
 
   const handleCardSelect = (findingId) => {
     onSelectFinding(findingId);
-    // Smooth scroll the corresponding text highlight into view
     const highlightEl = document.getElementById(`text-highlight-${findingId}`);
     if (highlightEl) {
       highlightEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -60,19 +65,37 @@ export default function FindingsPanel({
       )}
 
       {/* Header and counter */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
           <span>Brand Findings</span>
           <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
             {findings.length}
           </span>
         </h2>
-        <span className="text-[11px] text-slate-500 font-sans">
-          Click any card to locate in text
-        </span>
+
+        {/* Save as new version button */}
+        {canAct && pendingFixesCount > 0 && (
+          <button
+            type="button"
+            id="btn-save-new-version"
+            onClick={onSaveNewVersion}
+            disabled={savingVersion}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 animate-pulse hover:animate-none"
+          >
+            <Save className={`w-3.5 h-3.5 ${savingVersion ? 'animate-spin' : ''}`} />
+            <span>
+              {savingVersion ? 'Creating v...' : `Save as new version (${pendingFixesCount} fix${pendingFixesCount > 1 ? 'es' : ''})`}
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* Empty State */}
+      {/* Helper text */}
+      <p className="text-[11px] text-slate-500 leading-normal">
+        The draft copy never changes automatically. Choose <strong>Accept fix</strong>, <strong>Edit</strong>, or <strong>Dispute</strong> with a justification, then save a new version to re-check.
+      </p>
+
+      {/* Findings List or Empty State */}
       {findings.length === 0 ? (
         <EmptyState
           title="No issues found"
@@ -102,7 +125,10 @@ export default function FindingsPanel({
                       finding={finding}
                       isSelected={selectedFindingId === finding.id}
                       onSelect={() => handleCardSelect(finding.id)}
-                      actionSlot={actionSlotRenderer ? actionSlotRenderer(finding) : null}
+                      onAccept={onAcceptFinding}
+                      onEdit={onEditFinding}
+                      onDispute={onDisputeFinding}
+                      canAct={canAct}
                     />
                   ))}
                 </div>
