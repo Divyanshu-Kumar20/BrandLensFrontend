@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { ShieldCheck, Database, Wifi, Layers, LogOut, ExternalLink, Sparkles } from 'lucide-react';
+import { ShieldCheck, LogOut, Sparkles, User, ChevronDown } from 'lucide-react';
 import { api, isMockMode } from '../api';
 import { logout } from '../store/authSlice';
+import { ROLES } from '../utils/constants';
 
 export default function Layout({ children }) {
   const [health, setHealth] = useState({ loading: true, status: null, db: null, error: null });
   const { user, org, isAuthenticated } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const location = useLocation();
+  const navigate = useNavigate();
   const mockEnabled = isMockMode();
 
   useEffect(() => {
@@ -34,14 +36,30 @@ export default function Layout({ children }) {
 
   const handleLogout = () => {
     dispatch(logout());
+    navigate('/login');
   };
 
   const navLinks = [
-    { to: '/', label: 'Dashboard' },
+    { to: '/', label: 'Overview' },
+    { to: '/dashboard', label: 'Dashboard' },
     { to: '/knowledge', label: 'Knowledge Base' },
     { to: '/new', label: 'New Draft' },
     { to: '/insights', label: 'Insights' },
   ];
+
+  const getRoleBadgeClasses = (role) => {
+    switch (role) {
+      case ROLES.ADMIN:
+        return 'bg-amber-400/20 text-amber-300 border-amber-400/30';
+      case ROLES.MANAGER:
+        return 'bg-purple-400/20 text-purple-300 border-purple-400/30';
+      case ROLES.REVIEWER:
+        return 'bg-blue-400/20 text-blue-300 border-blue-400/30';
+      case ROLES.CREATOR:
+      default:
+        return 'bg-teal-400/20 text-teal-300 border-teal-400/30';
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
@@ -51,7 +69,11 @@ export default function Layout({ children }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Brand */}
             <div className="flex items-center space-x-3">
-              <Link to="/" className="flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-brand-teal-light rounded-md p-1">
+              <Link
+                to="/"
+                className="flex items-center space-x-2 group focus:outline-none focus:ring-2 focus:ring-brand-teal-light rounded-md p-1"
+                aria-label="BrandLens Home"
+              >
                 <div className="w-9 h-9 rounded-lg bg-brand-teal flex items-center justify-center text-white shadow-inner">
                   <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
@@ -60,7 +82,7 @@ export default function Layout({ children }) {
                     BrandLens
                     <span className="text-xs bg-brand-navy-light text-brand-teal-light px-2 py-0.5 rounded font-mono font-normal">v2</span>
                   </span>
-                  <span className="hidden sm:block text-xs text-slate-300">Pre-publication Brand Governance</span>
+                  <span className="hidden sm:block text-[11px] text-slate-300">Pre-publication Brand Governance</span>
                 </div>
               </Link>
 
@@ -74,7 +96,7 @@ export default function Layout({ children }) {
                   <span
                     id="api-status-badge"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700"
-                    title="Running with realistic in-memory API data"
+                    title="Running with realistic in-memory mock data (Nimbus Coffee Co.)"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     Mock mode
@@ -111,9 +133,9 @@ export default function Layout({ children }) {
                       <Link
                         key={link.to}
                         to={link.to}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                           active
-                            ? 'bg-brand-navy-light text-white font-semibold'
+                            ? 'bg-brand-navy-light text-white shadow-sm'
                             : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                         }`}
                       >
@@ -128,15 +150,29 @@ export default function Layout({ children }) {
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-3 border-l border-slate-700 pl-4">
                   <div className="text-right">
-                    <div className="text-xs font-medium text-white">{user.name}</div>
-                    <div className="text-[11px] text-brand-teal-light capitalize font-mono">
-                      {user.role} &bull; {org?.name || 'Nimbus'}
+                    <div id="header-user-name" className="text-xs font-bold text-white flex items-center justify-end gap-1.5">
+                      <span>{user.name}</span>
+                    </div>
+                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                      <span
+                        id="header-user-role"
+                        className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${getRoleBadgeClasses(
+                          user.role
+                        )}`}
+                      >
+                        {user.role}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                        {org?.name || 'Nimbus Coffee Co.'}
+                      </span>
                     </div>
                   </div>
+
                   <button
+                    id="logout-button"
                     onClick={handleLogout}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
-                    title="Log out"
+                    className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-teal transition"
+                    title="Log out of current session"
                     aria-label="Log out"
                   >
                     <LogOut className="w-4 h-4" />
@@ -145,7 +181,8 @@ export default function Layout({ children }) {
               ) : (
                 <Link
                   to="/login"
-                  className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-teal hover:bg-brand-teal-dark text-white transition-colors"
+                  id="header-login-link"
+                  className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold bg-brand-teal hover:bg-brand-teal-dark text-white transition shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-teal-light"
                 >
                   Demo Login
                 </Link>

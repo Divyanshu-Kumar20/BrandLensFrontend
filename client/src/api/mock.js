@@ -1,5 +1,4 @@
-// Mock API layer conforming strictly to Section 4 & Section 6 of BrandLens specification
-import { ROLES, CONTENT_STATUS, SEVERITIES, FINDING_TYPES, FINDING_STATUS, FINDING_ORIGINS } from '../utils/constants';
+import { ROLES, CONTENT_STATUS, SEVERITIES, FINDING_TYPES, FINDING_STATUS, FINDING_ORIGINS } from '../utils/constants.js';
 
 const delay = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms));
 
