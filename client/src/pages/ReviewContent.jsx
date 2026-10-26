@@ -27,6 +27,9 @@ import HighlightedText from '../components/HighlightedText';
 import FindingsPanel from '../components/FindingsPanel';
 import DiffView from '../components/DiffView';
 import VersionPicker from '../components/VersionPicker';
+import ApprovalBar from '../components/ApprovalBar';
+import CommentThread from '../components/CommentThread';
+import AuditTimeline from '../components/AuditTimeline';
 import Loading from '../components/Loading';
 import ErrorMessage from '../components/ErrorMessage';
 
@@ -34,9 +37,17 @@ export default function ReviewContent() {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { current, versions, findings, loading, reviewing, savingVersion, error } = useSelector(
-    (state) => state.content
-  );
+  const {
+    current,
+    versions,
+    findings,
+    comments,
+    audit,
+    loading,
+    reviewing,
+    savingVersion,
+    error,
+  } = useSelector((state) => state.content);
 
   const [selectedFindingId, setSelectedFindingId] = useState(null);
   const [activeVersionNumber, setActiveVersionNumber] = useState(null);
@@ -299,6 +310,9 @@ export default function ReviewContent() {
         </div>
       </div>
 
+      {/* Role-based Approval Workflow Bar */}
+      <ApprovalBar content={current} findings={findings} />
+
       {/* Diff View (if toggled or multiple versions available) */}
       {showDiff && previousVersion && activeVersion && (
         <DiffView
@@ -364,6 +378,16 @@ export default function ReviewContent() {
             savingVersion={savingVersion}
           />
         </div>
+      </div>
+
+      {/* Discussion & Audit Trail Bottom Panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        <CommentThread
+          contentId={id}
+          findings={findings}
+          selectedFindingId={selectedFindingId}
+        />
+        <AuditTimeline audit={audit} />
       </div>
     </div>
   );

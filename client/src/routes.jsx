@@ -69,7 +69,7 @@ export default function AppRoutes() {
         path="/insights"
         element={
           <ProtectedRoute>
-            <RoleGate allowedRoles={[ROLES.MANAGER, ROLES.ADMIN]}>
+            <RoleGate allowedRoles={[ROLES.CREATOR, ROLES.REVIEWER, ROLES.MANAGER, ROLES.ADMIN]}>
               <Insights />
             </RoleGate>
           </ProtectedRoute>

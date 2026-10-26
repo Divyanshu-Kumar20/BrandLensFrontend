@@ -14,12 +14,17 @@ export const fetchContentList = createAsyncThunk(
   }
 );
 
-// Fetch single content with versions and findings
+// Fetch single content with versions, findings, comments, and audit
 export const fetchContentDetail = createAsyncThunk(
   'content/fetchDetail',
   async (contentId, { rejectWithValue }) => {
     try {
-      const data = await api.getContentById(contentId);
+      const [data, comments, audit] = await Promise.all([
+        api.getContentById(contentId),
+        api.getComments(contentId),
+        api.getAudit(contentId),
+      ]);
+
       const latestVersion = data.versions?.[0] || null;
       let findings = [];
       if (latestVersion) {
@@ -29,6 +34,8 @@ export const fetchContentDetail = createAsyncThunk(
         content: data.content,
         versions: data.versions || [],
         findings,
+        comments,
+        audit,
       };
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to fetch content details');
@@ -108,17 +115,17 @@ export const saveNewVersionAndReview = createAsyncThunk(
   'content/saveNewVersionAndReview',
   async ({ contentId, basedOnVersionId, fixes, useAi = true }, { rejectWithValue }) => {
     try {
-      // 1. POST /content/:id/versions
       const newVersion = await api.createVersion(contentId, {
         basedOnVersionId,
         fixes,
       });
 
-      // 2. POST /content/:id/review
       const reviewResult = await api.reviewContent(contentId, {
         versionId: newVersion.id,
         useAi,
       });
+
+      const updatedAudit = await api.getAudit(contentId);
 
       return {
         newVersion: {
@@ -128,9 +135,93 @@ export const saveNewVersionAndReview = createAsyncThunk(
         },
         findings: reviewResult.findings || [],
         reviewResult,
+        audit: updatedAudit,
       };
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to save new version');
+    }
+  }
+);
+
+// Submit for Review (Creator)
+export const submitContentForReview = createAsyncThunk(
+  'content/submitForReview',
+  async ({ contentId, userName }, { rejectWithValue }) => {
+    try {
+      const updatedContent = await api.submitContent(contentId, userName);
+      const updatedAudit = await api.getAudit(contentId);
+      return { content: updatedContent, audit: updatedAudit };
+    } catch (err) {
+      return rejectWithValue({
+        code: err.code || 'CONFLICT',
+        status: err.status || 409,
+        message: err.message || 'Unable to submit content for review.',
+      });
+    }
+  }
+);
+
+// Approve / Request Changes / Reject (Reviewer & Manager)
+export const approveContentWorkflow = createAsyncThunk(
+  'content/approveWorkflow',
+  async ({ contentId, decision, note, userName, role }, { rejectWithValue }) => {
+    try {
+      const result = await api.approveContent(contentId, {
+        decision,
+        note,
+        userName,
+        role,
+      });
+      const updatedAudit = await api.getAudit(contentId);
+      return { ...result, audit: updatedAudit };
+    } catch (err) {
+      return rejectWithValue({
+        code: err.code || 'ERROR',
+        status: err.status || 400,
+        message: err.message || 'Workflow action failed.',
+      });
+    }
+  }
+);
+
+// Comments: fetch and add
+export const fetchComments = createAsyncThunk(
+  'content/fetchComments',
+  async (contentId, { rejectWithValue }) => {
+    try {
+      return await api.getComments(contentId);
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to load comments');
+    }
+  }
+);
+
+export const postComment = createAsyncThunk(
+  'content/postComment',
+  async ({ contentId, text, findingId, versionId, authorName, authorRole }, { rejectWithValue }) => {
+    try {
+      const newComment = await api.addComment(contentId, {
+        text,
+        findingId,
+        versionId,
+        authorName,
+        authorRole,
+      });
+      return newComment;
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to post comment');
+    }
+  }
+);
+
+// Audit: fetch
+export const fetchAudit = createAsyncThunk(
+  'content/fetchAudit',
+  async (contentId, { rejectWithValue }) => {
+    try {
+      return await api.getAudit(contentId);
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to load audit history');
     }
   }
 );
@@ -140,9 +231,13 @@ const initialState = {
   current: null,
   versions: [],
   findings: [],
+  comments: [],
+  audit: [],
   loading: false,
   reviewing: false,
   savingVersion: false,
+  workflowLoading: false,
+  workflowError: null,
   error: null,
 };
 
@@ -152,6 +247,7 @@ const contentSlice = createSlice({
   reducers: {
     clearContentError(state) {
       state.error = null;
+      state.workflowError = null;
     },
     setCurrentContent(state, action) {
       const { content, versions = [] } = action.payload;
@@ -188,6 +284,8 @@ const contentSlice = createSlice({
         state.current = action.payload.content;
         state.versions = action.payload.versions;
         state.findings = action.payload.findings;
+        state.comments = action.payload.comments || [];
+        state.audit = action.payload.audit || [];
       })
       .addCase(fetchContentDetail.rejected, (state, action) => {
         state.loading = false;
@@ -239,17 +337,63 @@ const contentSlice = createSlice({
       })
       .addCase(saveNewVersionAndReview.fulfilled, (state, action) => {
         state.savingVersion = false;
-        const { newVersion, findings } = action.payload;
+        const { newVersion, findings, audit } = action.payload;
         state.versions.unshift(newVersion);
         if (state.current) {
           state.current.currentVersion = newVersion.number;
           state.current.updatedAt = new Date().toISOString();
         }
         state.findings = findings;
+        if (audit) state.audit = audit;
       })
       .addCase(saveNewVersionAndReview.rejected, (state, action) => {
         state.savingVersion = false;
         state.error = action.payload;
+      })
+
+      // Submit for review
+      .addCase(submitContentForReview.pending, (state) => {
+        state.workflowLoading = true;
+        state.workflowError = null;
+      })
+      .addCase(submitContentForReview.fulfilled, (state, action) => {
+        state.workflowLoading = false;
+        state.current = action.payload.content;
+        state.audit = action.payload.audit;
+        state.workflowError = null;
+      })
+      .addCase(submitContentForReview.rejected, (state, action) => {
+        state.workflowLoading = false;
+        state.workflowError = action.payload;
+      })
+
+      // Approve workflow
+      .addCase(approveContentWorkflow.pending, (state) => {
+        state.workflowLoading = true;
+        state.workflowError = null;
+      })
+      .addCase(approveContentWorkflow.fulfilled, (state, action) => {
+        state.workflowLoading = false;
+        state.current = action.payload.content;
+        state.audit = action.payload.audit;
+        state.workflowError = null;
+      })
+      .addCase(approveContentWorkflow.rejected, (state, action) => {
+        state.workflowLoading = false;
+        state.workflowError = action.payload;
+      })
+
+      // Comments
+      .addCase(fetchComments.fulfilled, (state, action) => {
+        state.comments = action.payload;
+      })
+      .addCase(postComment.fulfilled, (state, action) => {
+        state.comments.push(action.payload);
+      })
+
+      // Audit
+      .addCase(fetchAudit.fulfilled, (state, action) => {
+        state.audit = action.payload;
       });
   },
 });

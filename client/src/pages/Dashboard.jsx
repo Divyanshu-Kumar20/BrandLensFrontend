@@ -44,13 +44,21 @@ export default function Dashboard() {
   }, [dispatch, statusFilter]);
 
   const canCreateContent = user?.role === ROLES.CREATOR || user?.role === ROLES.ADMIN;
+  const isAdmin = user?.role === ROLES.ADMIN;
   const isReviewer = user?.role === ROLES.REVIEWER;
   const isManager = user?.role === ROLES.MANAGER;
+  const canReview = isReviewer || isManager || isAdmin;
 
   // "Waiting for you" items
   const waitingItems = list.filter((item) => {
     if (isReviewer) return item.status === CONTENT_STATUS.IN_REVIEW;
     if (isManager) return item.status === CONTENT_STATUS.REVIEWER_APPROVED;
+    if (isAdmin) {
+      return (
+        item.status === CONTENT_STATUS.IN_REVIEW ||
+        item.status === CONTENT_STATUS.REVIEWER_APPROVED
+      );
+    }
     return false;
   });
 
@@ -119,7 +127,7 @@ export default function Dashboard() {
       </div>
 
       {/* Reviewer / Manager "Waiting for you" section */}
-      {(isReviewer || isManager) && (
+      {canReview && (
         <section aria-labelledby="waiting-for-you-title">
           <div className="bg-gradient-to-r from-blue-900 to-brand-navy text-white rounded-2xl p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
@@ -136,8 +144,7 @@ export default function Dashboard() {
 
             {waitingItems.length === 0 ? (
               <p className="text-xs text-slate-300">
-                You are all caught up! No drafts are currently awaiting{' '}
-                {isReviewer ? 'reviewer check' : 'manager final approval'}.
+                You are all caught up! No drafts are currently awaiting your sign-off.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
@@ -159,9 +166,15 @@ export default function Dashboard() {
                         Created by {item.createdByName}
                       </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-300 font-medium">
-                      <span>Review now</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-amber-300 font-mono text-[10px] uppercase font-bold">
+                        {item.status === CONTENT_STATUS.IN_REVIEW
+                          ? 'Stage 1: Reviewer'
+                          : 'Stage 2: Manager'}
+                      </span>
+                      <span className="text-emerald-300 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                        Review now &rarr;
+                      </span>
                     </div>
                   </Link>
                 ))}
